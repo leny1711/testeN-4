@@ -47,8 +47,8 @@ export const errorHandler = (
     message = 'Token expired';
   }
 
-  // Log error in development
-  if (process.env.NODE_ENV === 'development') {
+  // Log error in development (but not 404s which are expected)
+  if (process.env.NODE_ENV === 'development' && statusCode !== 404) {
     console.error('❌ Error:', err);
   }
 
