@@ -19,7 +19,8 @@ prisma.$connect()
   })
   .catch((error) => {
     console.error('❌ Database connection failed:', error);
-    process.exit(1);
+    console.warn('   Server will continue but database operations will fail.');
+    console.warn('   Please check your DATABASE_URL environment variable.');
   });
 
 // Graceful shutdown

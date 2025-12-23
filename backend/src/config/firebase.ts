@@ -5,21 +5,34 @@
 
 import * as admin from 'firebase-admin';
 
+let isFirebaseInitialized = false;
+
 // Initialize Firebase Admin SDK
 const initializeFirebase = () => {
   try {
+    // Check if Firebase credentials are provided
+    const { FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, FIREBASE_CLIENT_EMAIL } = process.env;
+    
+    if (!FIREBASE_PROJECT_ID || !FIREBASE_PRIVATE_KEY || !FIREBASE_CLIENT_EMAIL) {
+      console.warn('⚠️  Firebase credentials not configured. Push notifications will be disabled.');
+      console.warn('   To enable Firebase, set FIREBASE_PROJECT_ID, FIREBASE_PRIVATE_KEY, and FIREBASE_CLIENT_EMAIL environment variables.');
+      return;
+    }
+
     if (!admin.apps.length) {
       admin.initializeApp({
         credential: admin.credential.cert({
-          projectId: process.env.FIREBASE_PROJECT_ID,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
-          clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
+          projectId: FIREBASE_PROJECT_ID,
+          privateKey: FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+          clientEmail: FIREBASE_CLIENT_EMAIL,
         }),
       });
+      isFirebaseInitialized = true;
       console.log('✅ Firebase initialized successfully');
     }
   } catch (error) {
     console.error('❌ Firebase initialization failed:', error);
+    console.warn('   Push notifications will be disabled. Please check your Firebase configuration.');
   }
 };
 
@@ -36,6 +49,11 @@ export const sendPushNotification = async (
     data?: Record<string, string>;
   }
 ) => {
+  if (!isFirebaseInitialized) {
+    console.warn('⚠️  Firebase not initialized. Skipping push notification.');
+    return null;
+  }
+
   try {
     const message = {
       token,
@@ -76,6 +94,11 @@ export const sendMulticastNotification = async (
     data?: Record<string, string>;
   }
 ) => {
+  if (!isFirebaseInitialized) {
+    console.warn('⚠️  Firebase not initialized. Skipping multicast notification.');
+    return null;
+  }
+
   try {
     const message = {
       tokens,
