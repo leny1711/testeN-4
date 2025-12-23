@@ -1,0 +1,281 @@
+// Prisma Schema - Database definition for TaskRunner Marketplace
+// This schema defines all the models for users, missions, payments, ratings, etc.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enum for user roles
+enum UserRole {
+  CLIENT      // User who requests services
+  PROVIDER    // User who provides services
+  ADMIN       // Platform administrator
+}
+
+// Enum for user status
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+  BANNED
+}
+
+// Enum for mission status
+enum MissionStatus {
+  PENDING      // Mission created, waiting for provider
+  ACCEPTED     // Provider accepted the mission
+  IN_PROGRESS  // Provider is working on the mission
+  COMPLETED    // Mission completed
+  CANCELLED    // Mission cancelled
+  DISPUTED     // Mission in dispute
+}
+
+// Enum for mission urgency
+enum MissionUrgency {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+// Enum for payment status
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+// Enum for notification type
+enum NotificationType {
+  NEW_MISSION
+  MISSION_ACCEPTED
+  MISSION_COMPLETED
+  PAYMENT_RECEIVED
+  NEW_MESSAGE
+  RATING_RECEIVED
+  SYSTEM
+}
+
+// Main User model
+model User {
+  id                String       @id @default(uuid())
+  email             String       @unique
+  password          String
+  firstName         String
+  lastName          String
+  phone             String?
+  role              UserRole     @default(CLIENT)
+  status            UserStatus   @default(ACTIVE)
+  profilePicture    String?
+  
+  // Geolocation
+  currentLatitude   Float?
+  currentLongitude  Float?
+  address           String?
+  city              String?
+  country           String?
+  
+  // Provider specific fields
+  isAvailable       Boolean      @default(false)
+  vehicleType       String?      // car, bike, foot
+  serviceRadius     Float?       // in kilometers
+  
+  // Ratings
+  averageRating     Float        @default(0)
+  totalRatings      Int          @default(0)
+  
+  // Financial
+  stripeCustomerId  String?      @unique
+  stripeAccountId   String?      @unique // For providers (Stripe Connect)
+  balance           Float        @default(0)
+  
+  // Push notifications
+  fcmToken          String?
+  
+  // Timestamps
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  lastActiveAt      DateTime     @default(now())
+  
+  // Relations
+  clientMissions    Mission[]    @relation("ClientMissions")
+  providerMissions  Mission[]    @relation("ProviderMissions")
+  sentMessages      Message[]    @relation("SentMessages")
+  receivedMessages  Message[]    @relation("ReceivedMessages")
+  givenRatings      Rating[]     @relation("GivenRatings")
+  receivedRatings   Rating[]     @relation("ReceivedRatings")
+  payments          Payment[]
+  notifications     Notification[]
+  
+  @@index([email])
+  @@index([role, status])
+  @@index([isAvailable, currentLatitude, currentLongitude])
+}
+
+// Mission model - represents a service request
+model Mission {
+  id                String          @id @default(uuid())
+  
+  // Client information
+  clientId          String
+  client            User            @relation("ClientMissions", fields: [clientId], references: [id])
+  
+  // Provider information
+  providerId        String?
+  provider          User?           @relation("ProviderMissions", fields: [providerId], references: [id])
+  
+  // Mission details
+  title             String
+  description       String
+  category          String          // courses, colis, promenade, achat, autre
+  
+  // Location
+  pickupLatitude    Float?
+  pickupLongitude   Float?
+  pickupAddress     String
+  deliveryLatitude  Float?
+  deliveryLongitude Float?
+  deliveryAddress   String?
+  
+  // Mission properties
+  urgency           MissionUrgency  @default(MEDIUM)
+  status            MissionStatus   @default(PENDING)
+  
+  // Pricing
+  clientPrice       Float           // Price client is willing to pay
+  providerEarning   Float?          // Provider's earning (after commission)
+  platformFee       Float?          // Platform commission
+  
+  // Timing
+  requestedAt       DateTime        @default(now())
+  acceptedAt        DateTime?
+  startedAt         DateTime?
+  completedAt       DateTime?
+  
+  // Additional info
+  estimatedDuration Int?            // in minutes
+  notes             String?
+  
+  // Timestamps
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+  
+  // Relations
+  messages          Message[]
+  rating            Rating?
+  payment           Payment?
+  
+  @@index([clientId])
+  @@index([providerId])
+  @@index([status])
+  @@index([pickupLatitude, pickupLongitude])
+  @@index([createdAt])
+}
+
+// Message model - chat between client and provider
+model Message {
+  id          String    @id @default(uuid())
+  
+  missionId   String
+  mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  
+  senderId    String
+  sender      User      @relation("SentMessages", fields: [senderId], references: [id])
+  
+  receiverId  String
+  receiver    User      @relation("ReceivedMessages", fields: [receiverId], references: [id])
+  
+  content     String
+  isRead      Boolean   @default(false)
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([missionId])
+  @@index([senderId, receiverId])
+  @@index([createdAt])
+}
+
+// Rating model - reviews and ratings
+model Rating {
+  id          String    @id @default(uuid())
+  
+  missionId   String    @unique
+  mission     Mission   @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  
+  raterId     String
+  rater       User      @relation("GivenRatings", fields: [raterId], references: [id])
+  
+  ratedId     String
+  rated       User      @relation("ReceivedRatings", fields: [ratedId], references: [id])
+  
+  score       Int       // 1 to 5
+  comment     String?
+  
+  createdAt   DateTime  @default(now())
+  
+  @@index([ratedId])
+  @@index([missionId])
+}
+
+// Payment model - transaction records
+model Payment {
+  id                  String        @id @default(uuid())
+  
+  missionId           String        @unique
+  mission             Mission       @relation(fields: [missionId], references: [id], onDelete: Cascade)
+  
+  userId              String
+  user                User          @relation(fields: [userId], references: [id])
+  
+  amount              Float         // Total amount
+  platformFee         Float         // Commission taken by platform
+  providerEarning     Float         // Amount paid to provider
+  
+  stripePaymentId     String?       @unique
+  stripePaymentIntent String?
+  
+  status              PaymentStatus @default(PENDING)
+  
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  
+  @@index([missionId])
+  @@index([userId])
+  @@index([status])
+}
+
+// Notification model - push notifications
+model Notification {
+  id        String           @id @default(uuid())
+  
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  
+  type      NotificationType
+  title     String
+  body      String
+  data      String?          // JSON string with additional data
+  
+  isRead    Boolean          @default(false)
+  
+  createdAt DateTime         @default(now())
+  
+  @@index([userId, isRead])
+  @@index([createdAt])
+}
+
+// Platform configuration
+model PlatformConfig {
+  id              String   @id @default(uuid())
+  key             String   @unique
+  value           String
+  description     String?
+  updatedAt       DateTime @updatedAt
+}
