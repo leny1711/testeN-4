@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+.expo/
+.expo-shared/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+web-build/
+dist/
+
+# Environment
+.env
+.env.local
+
+# macOS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
