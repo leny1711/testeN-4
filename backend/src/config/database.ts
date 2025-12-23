@@ -5,6 +5,9 @@
 
 import { PrismaClient } from '@prisma/client';
 
+// Track database connection status
+let isDatabaseConnected = false;
+
 // Create Prisma client instance with logging
 const prisma = new PrismaClient({
   log: process.env.NODE_ENV === 'development' 
@@ -15,11 +18,13 @@ const prisma = new PrismaClient({
 // Handle connection errors
 prisma.$connect()
   .then(() => {
+    isDatabaseConnected = true;
     console.log('✅ Database connected successfully');
   })
   .catch((error) => {
     console.error('❌ Database connection failed:', error);
-    process.exit(1);
+    console.warn('   Server will continue but database operations will fail.');
+    console.warn('   Please check your DATABASE_URL environment variable.');
   });
 
 // Graceful shutdown
@@ -27,4 +32,5 @@ process.on('beforeExit', async () => {
   await prisma.$disconnect();
 });
 
+export { isDatabaseConnected };
 export default prisma;
