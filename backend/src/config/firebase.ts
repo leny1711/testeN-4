@@ -40,6 +40,7 @@ initializeFirebase();
 
 /**
  * Send push notification to a user
+ * @returns Promise resolving to the message ID, or null if Firebase is not initialized
  */
 export const sendPushNotification = async (
   token: string,
@@ -48,7 +49,7 @@ export const sendPushNotification = async (
     body: string;
     data?: Record<string, string>;
   }
-) => {
+): Promise<string | null> => {
   if (!isFirebaseInitialized) {
     console.warn('⚠️  Firebase not initialized. Skipping push notification.');
     return null;
@@ -85,6 +86,7 @@ export const sendPushNotification = async (
 
 /**
  * Send push notification to multiple users
+ * @returns Promise resolving to BatchResponse, or null if Firebase is not initialized
  */
 export const sendMulticastNotification = async (
   tokens: string[],
@@ -93,7 +95,7 @@ export const sendMulticastNotification = async (
     body: string;
     data?: Record<string, string>;
   }
-) => {
+): Promise<admin.messaging.BatchResponse | null> => {
   if (!isFirebaseInitialized) {
     console.warn('⚠️  Firebase not initialized. Skipping multicast notification.');
     return null;
