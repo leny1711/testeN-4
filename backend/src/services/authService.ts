@@ -241,5 +241,5 @@ const generateToken = (id: string, email: string, role: UserRole): string => {
 
   return jwt.sign({ id, email, role }, jwtSecret, {
     expiresIn: jwtExpiresIn,
-  });
+  } as jwt.SignOptions);
 };
